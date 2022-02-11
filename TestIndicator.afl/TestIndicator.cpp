@@ -7,17 +7,18 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <vector>
 #include "Plugin.h"
 
 #undef LOG
 int SkipEmptyValues(int nSize, float* Src, float* Dst);
 
-BOOL APIENTRY DllMain( HANDLE hModule, 
-                       DWORD  ul_reason_for_call, 
-                       LPVOID lpReserved
-					 )
+BOOL APIENTRY DllMain(HANDLE hModule,
+	DWORD  ul_reason_for_call,
+	LPVOID lpReserved
+)
 {
-    return TRUE;
+	return TRUE;
 }
 
 ////////////////////////////////////////////////////
@@ -161,27 +162,72 @@ AmiVar LEL_PeakValley(int NumArgs, AmiVar* ArgsTable) {
 	return result;
 }
 
+struct V {
+	float f0 = 0.0f, f8 = 0.0f, f10 = 0.0f, f18 = 0.0f, f20 = 0.0f, f28 = 0.0f, f30 = 0.0f, f38 = 0.0f, f40 = 0.0f,
+		f48 = 0.0f, f50 = 0.0f, f58 = 0.0f, f60 = 0.0f, f68 = 0.0f, f70 = 0.0f, f78 = 0.0f, f80 = 0.0f;
+	float v4 = 0.0f, v8 = 0.0f, v10 = 0.0f, v14 = 0.0f, v18 = 0.0f, v20 = 0.0f, vC = 0.0f, v1C = 0.0f;
+};
+
 AmiVar LEL_RSX(int NumArgs, AmiVar* ArgsTable) {
 	AmiVar result = gSite.AllocArrayResult();
 	int nSize = gSite.GetArraySize();
 	float* SrcArray = ArgsTable[0].array;
-	float len_param = (float)ArgsTable[1].val;
+	float Len = (float)ArgsTable[1].val;
 
 	int iStart = SkipEmptyValues(nSize, SrcArray, result.array);
 	if (iStart >= nSize)
 		return result;
 
-	float prev_value = SrcArray[iStart];
+	V v;
+	V pV;
 
 	for (int i = iStart + 1; i < nSize; i++) {
-		float cur_value = SrcArray[i];
-		if (cur_value == EMPTY_VAL) {
-			result.array[i] = prev_value;
+		float Close = SrcArray[i];
+		if (Close == EMPTY_VAL) {
+			result.array[i] = SrcArray[i - 1];
 			continue;
 		}
+
+		v.f8 = 100.0f * Close;
+		v.f18 = 3.0f / (Len + 2.0f);
+		v.f20 = 1.0f - v.f18;
+
+		v.f8 = 100.0f * Close;
+		v.f10 = pV.f8;
+		v.v8 = v.f8 - v.f10;
+		v.f28 = v.f20 * pV.f28 + v.f18 * v.v8;
+		v.f30 = v.f18 * v.f28 + v.f20 * pV.f30;
+		v.vC = v.f28 * 1.5f - v.f30 * 0.5f;
+		v.f38 = v.f20 * pV.f38 + v.f18 * v.vC;
+		v.f40 = v.f18 * v.f38 + v.f20 * pV.f40;
+		v.v10 = v.f38 * 1.5f - v.f40 * 0.5f;
+		v.f48 = v.f20 * pV.f48 + v.f18 * v.v10;
+		v.f50 = v.f18 * v.f48 + v.f20 * pV.f50;
+		v.v14 = v.f48 * 1.5f - v.f50 * 0.5f;
+		v.f58 = v.f20 * pV.f58 + v.f18 * std::abs(v.v8);
+		v.f60 = v.f18 * v.f58 + v.f20 * pV.f60;
+		v.v18 = v.f58 * 1.5f - v.f60 * 0.5f;
+		v.f68 = v.f20 * pV.f68 + v.f18 * v.v18;
+		v.f70 = v.f18 * v.f68 + v.f20 * pV.f70;
+		v.v1C = v.f68 * 1.5f - v.f70 * 0.5f;
+		v.f78 = v.f20 * pV.f78 + v.f18 * v.v1C;
+		v.f80 = v.f18 * v.f78 + v.f20 * pV.f80;
+		v.v20 = v.f78 * 1.5f - v.f80 * 0.5f;
+
+		float v4_ = v.v20 > 0.0f ? (v.v14 / v.v20 + 1.0f) * 50.0f : 50.0f;
+		float rsx = v4_ > 100.0f ? 100.0f : v4_ < 0.0f ? 0.0f : v4_;
+
+		result.array[i] = rsx;
+
+		pV = v;
 	}
 
+	//return rsx coloured(255, 0, 255) style(line, 3) as "Jurik RSX", 30 coloured(100, 100, 100) style(dottedline), 50 coloured(100, 100, 100) style(dottedline), 70 coloured(100, 100, 100) style(dottedline)
 	return result;
+}
+
+float nz(float value) {
+	return (value == EMPTY_VAL) ? 0.0f : value;
 }
 
 // Helper function
